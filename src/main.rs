@@ -4,7 +4,11 @@ use dynamic_analysis_kit::*;
 use windows::Win32::System::Diagnostics::Debug::ReadProcessMemory;
 
 fn main() {
-    let processes = list_processes().unwrap();
+    let processes = process::list().unwrap();
+    let entry = processes
+        .iter()
+        .find(|&x| x.executable_name == "svchost.exe") // Stops at the first match!
+        .unwrap();
 
     // for entry in processes.iter() {
     //     println!(
@@ -18,7 +22,7 @@ fn main() {
         .find(|x| x.executable_name == "msedge.exe")
         .unwrap();
 
-    let handle = process_handle_by_id(entry.th32ProcessID).unwrap();
+    let handle = process::handle_by_pid(entry.th32ProcessID).unwrap();
 
     // for entry in process_modules_by_id(entry.th32ProcessID).unwrap() {
     //     if entry.module_name == "telclient.dll" {
