@@ -1,4 +1,4 @@
-//! # process
+//! # Simplifies process manipulation
 //!
 //! `process` abstracts away working with processes in a really plain way
 
@@ -14,6 +14,18 @@ use windows::{
 
 const DEFAULT_PROCESS_ACCESS_RIGHTS: PROCESS_ACCESS_RIGHTS = PROCESS_ALL_ACCESS;
 
+/// A wrapper around process's entry. Has a handy `executable_name` field
+/// for simpler identification.
+///
+/// # Examples
+/// ```
+/// use crate::dynamic_analysis_kit::*;
+///
+/// let processes = process::list().unwrap();
+/// let entry = processes
+///     .iter()
+///     .filter(|&x| x.executable_name == "svchost.exe"); // A list of svchost.exe-s
+/// ```
 #[derive(Debug)]
 pub struct ProcessEntryWrapper {
     pub process_entry: PROCESSENTRY32W,
@@ -37,11 +49,13 @@ impl Deref for ProcessEntryWrapper {
     }
 }
 
-/// Returns a list of processes in the system
+/// Returns a list of processes in the system.
 ///
 /// # Examples
 ///
 /// ```
+/// use crate::dynamic_analysis_kit::*;
+///
 /// let processes = process::list().unwrap();
 /// let entry = processes
 ///     .iter()
@@ -68,6 +82,7 @@ pub fn list() -> Result<Vec<ProcessEntryWrapper>> {
     Ok(processes)
 }
 
+/// A wrapper around Windows's handle. Closes the handle on drop.
 #[derive(Debug)]
 pub struct HandleWrapper {
     pub handle: HANDLE,
@@ -77,7 +92,7 @@ impl Drop for HandleWrapper {
     fn drop(&mut self) {
         match unsafe { CloseHandle(self.handle) } {
             Ok(_) => (),
-            Err(err) => panic!("Failed to close the handle with code: {}", err.code()),
+            Err(err) => panic!("Failed to close the handle: {}", err),
         };
     }
 }
@@ -90,6 +105,21 @@ impl Deref for HandleWrapper {
     }
 }
 
+/// Returns a process handle wrapper by its identifier.
+///
+/// # Examples
+/// ```
+/// use crate::dynamic_analysis_kit::*;
+///
+/// let processes = process::list().unwrap();
+/// let entry = processes
+///     .iter()
+///     .find(|&x| x.executable_name == "LockApp.exe") // System processes are gonna be upset with our meddling
+///     .unwrap();
+///
+/// let handle_wrapper = process::handle_by_pid(entry.th32ProcessID).unwrap();
+/// let handle = *handle_wrapper; // Implements Deref
+/// ```
 pub fn handle_by_pid(pid: u32) -> Result<HandleWrapper> {
     Ok(HandleWrapper {
         handle: unsafe { OpenProcess(DEFAULT_PROCESS_ACCESS_RIGHTS, false, pid) }?,

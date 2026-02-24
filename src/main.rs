@@ -5,10 +5,6 @@ use windows::Win32::System::Diagnostics::Debug::ReadProcessMemory;
 
 fn main() {
     let processes = process::list().unwrap();
-    let entry = processes
-        .iter()
-        .find(|&x| x.executable_name == "svchost.exe") // Stops at the first match!
-        .unwrap();
 
     // for entry in processes.iter() {
     //     println!(
