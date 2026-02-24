@@ -8,6 +8,8 @@ use windows::{
     core::Result,
 };
 
+const DEFAULT_PROCESS_ACCESS_RIGHTS: PROCESS_ACCESS_RIGHTS = PROCESS_ALL_ACCESS;
+
 #[derive(Debug)]
 pub struct ProcessEntryWrapper {
     pub process_entry: PROCESSENTRY32W,
@@ -95,7 +97,7 @@ pub fn process_handle_by_name(name: &str) -> Result<Option<HandleWrapper>> {
 
 pub fn process_handle_by_id(process_id: u32) -> Result<HandleWrapper> {
     Ok(HandleWrapper {
-        handle: unsafe { OpenProcess(PROCESS_ALL_ACCESS, false, process_id) }?,
+        handle: unsafe { OpenProcess(DEFAULT_PROCESS_ACCESS_RIGHTS, false, process_id) }?,
     })
 }
 
@@ -151,7 +153,7 @@ pub fn process_modules_by_id(process_id: u32) -> Result<Vec<ModuleEntryWrapper>>
     Ok(modules)
 }
 
-pub fn get_readable_pages_by_address(
+pub fn consecutive_readable_pages_at(
     handle: &HANDLE,
     base_address: *mut u8,
 ) -> Vec<MEMORY_BASIC_INFORMATION> {
@@ -178,6 +180,9 @@ pub fn get_readable_pages_by_address(
             break;
         }
 
+        // We trust Windows not to point us in the wrong direction
+        region_address = unsafe { region_address.add(region_information.RegionSize) };
+
         if region_information.State != MEM_COMMIT {
             continue;
         }
@@ -195,11 +200,64 @@ pub fn get_readable_pages_by_address(
             continue;
         }
 
+        regions.push(region_information);
+    }
+
+    regions
+}
+
+pub fn every_readable_page(
+    handle: &HANDLE
+) -> Vec<MEMORY_BASIC_INFORMATION> {
+    let mut region_address: *mut u8 = std::ptr::null_mut();
+    let mut region_information = MEMORY_BASIC_INFORMATION::default();
+
+    let mut regions: Vec<MEMORY_BASIC_INFORMATION> = Vec::new();
+
+    println!("{}", region_address as i64);
+
+    loop {
+        let result = unsafe {
+            VirtualQueryEx(
+                *handle,
+                Some(region_address as *const c_void),
+                &mut region_information,
+                size_of::<MEMORY_BASIC_INFORMATION>(),
+            )
+        };
+
+        if result == 0 {
+            break;
+        }
+
         // We trust Windows not to point us in the wrong direction
         region_address = unsafe { region_address.add(region_information.RegionSize) };
+
+        if region_information.State != MEM_COMMIT {
+            continue;
+        }
+
+        if (region_information.Protect
+            & (PAGE_READONLY
+                | PAGE_READWRITE
+                | PAGE_WRITECOPY
+                | PAGE_EXECUTE_READ
+                | PAGE_EXECUTE_READWRITE
+                | PAGE_EXECUTE_WRITECOPY))
+            .0
+            == 0
+        {
+            continue;
+        }
 
         regions.push(region_information);
     }
 
     regions
+}
+
+pub fn aob(buffer: &[u8], pattern: &[u8]) -> Option<usize> {
+    buffer
+        .windows(pattern.len())
+        .position(|window| window == pattern)
 }
