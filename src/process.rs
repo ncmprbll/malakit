@@ -19,7 +19,7 @@ pub use windows::Win32::System::Threading::{
     PROCESS_VM_OPERATION, PROCESS_VM_READ, PROCESS_VM_WRITE,
 };
 
-const DEFAULT_PROCESS_ACCESS_RIGHTS: PROCESS_ACCESS_RIGHTS = PROCESS_ALL_ACCESS;
+pub const DEFAULT_PROCESS_ACCESS_RIGHTS: PROCESS_ACCESS_RIGHTS = PROCESS_ALL_ACCESS;
 
 /// A wrapper around process's entry. Has a handy `executable_name` field
 /// for simpler identification.

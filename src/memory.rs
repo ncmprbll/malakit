@@ -2,12 +2,25 @@
 //!
 //! `memory` abstracts away working with process's virtual address space
 
-use std::ops::Deref;
+use std::{ffi::c_void, ops::Deref};
 
 use windows::{
-    Win32::{Foundation::CloseHandle, System::Diagnostics::ToolHelp::*},
+    Win32::{
+        Foundation::CloseHandle, Foundation::HANDLE, System::Diagnostics::ToolHelp::*,
+        System::Memory::*,
+    },
     core::Result,
 };
+
+/// Read-only combination of flags
+pub const DEFAULT_PAGE_PROTECTION_FLAGS: PAGE_PROTECTION_FLAGS = PAGE_PROTECTION_FLAGS(
+    PAGE_READONLY.0
+        | PAGE_READWRITE.0
+        | PAGE_WRITECOPY.0
+        | PAGE_EXECUTE_READ.0
+        | PAGE_EXECUTE_READWRITE.0
+        | PAGE_EXECUTE_WRITECOPY.0,
+);
 
 /// A wrapper around module's entry. Has a handy `module_name` field
 /// for simpler identification.

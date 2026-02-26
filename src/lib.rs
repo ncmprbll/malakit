@@ -10,8 +10,8 @@ use windows::{
     core::Result,
 };
 
-pub mod process;
 pub mod memory;
+pub mod process;
 
 fn u16_to_string(array: &[u16]) -> Result<String> {
     let first_null_position = array
