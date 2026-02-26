@@ -126,8 +126,22 @@ pub enum PageAllocation {
 ///     .find(|&x| x.executable_name == "conhost.exe")
 ///     .unwrap();
 ///
-/// let handle_wrapper = process::handle_by_pid_with_rights(entry.th32ProcessID, process::PROCESS_QUERY_INFORMATION).unwrap();
-/// let pages = memory::list_pages_by_handle_with_flags(&handle_wrapper, 0 as *mut u8, memory::PageAllocation::Any, memory::DEFAULT_PAGE_PROTECTION_FLAGS);
+/// let handle_wrapper =
+///     process::handle_by_pid_with_rights(entry.th32ProcessID, process::PROCESS_QUERY_INFORMATION)
+///         .unwrap();
+///
+/// let module = memory::list_modules_by_pid(entry.th32ProcessID)
+///     .unwrap()
+///     .into_iter()
+///     .find(|x| x.module_name == "ntdll.dll")
+///     .unwrap();
+///
+/// let pages = memory::list_pages_by_handle_with_flags(
+///     &handle_wrapper,
+///     module.modBaseAddr,
+///     memory::PageAllocation::Same,
+///     memory::DEFAULT_PAGE_PROTECTION_FLAGS,
+/// );
 /// ```
 pub fn list_pages_by_handle_with_flags(
     handle: &HANDLE,
@@ -180,7 +194,7 @@ pub fn list_pages_by_handle_with_flags(
     regions
 }
 
-/// Shorthand for `list_pages_by_handle_with_flags`
+/// Shorthand for [`list_pages_by_handle_with_flags`]
 pub fn list_readonly_pages_by_handle(
     handle: &HANDLE,
     base_address: *mut u8,
@@ -194,7 +208,7 @@ pub fn list_readonly_pages_by_handle(
     )
 }
 
-/// Shorthand for `list_pages_by_handle_with_flags`
+/// Shorthand for [`list_pages_by_handle_with_flags`]
 pub fn list_every_readonly_page_by_handle(handle: &HANDLE) -> Vec<MEMORY_BASIC_INFORMATION> {
     list_readonly_pages_by_handle(handle, 0 as *mut u8, PageAllocation::Any)
 }
