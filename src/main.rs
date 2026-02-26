@@ -1,9 +1,7 @@
 use std::ffi::c_void;
 
 use dynamic_analysis_kit::*;
-use windows::Win32::System::{
-    Diagnostics::Debug::ReadProcessMemory, Threading::PROCESS_ACCESS_RIGHTS,
-};
+use windows::Win32::System::Diagnostics::Debug::ReadProcessMemory;
 
 fn main() {
     let processes = process::list().unwrap();
@@ -20,19 +18,16 @@ fn main() {
         .find(|x| x.executable_name == "msedge.exe")
         .unwrap();
 
-    let modules = memory::list_modules_by_pid(entry.th32ProcessID).unwrap();
-    let entry = modules
-        .into_iter()
-        .find(|x| x.module_name == "ntdll.exe")
-        .unwrap();
-    let entry = *entry;
-
     let handle = process::handle_by_pid(entry.th32ProcessID).unwrap();
 
     for entry in memory::list_modules_by_pid(entry.th32ProcessID).unwrap() {
         if entry.module_name == "telclient.dll" {
             println!("{} 0x{:X}", entry.module_name, entry.modBaseAddr as i64);
-            for info in consecutive_readable_pages_at(&handle, entry.modBaseAddr) {
+            for info in memory::list_readonly_pages_by_handle(
+                &handle,
+                entry.modBaseAddr,
+                memory::PageAllocation::Same,
+            ) {
                 let mut buffer: Vec<u8> = vec![0; info.RegionSize];
 
                 if let Err(err) = unsafe {
@@ -55,7 +50,7 @@ fn main() {
         }
     }
 
-    for page in every_readable_page(&handle) {
+    for page in memory::list_every_readonly_page_by_handle(&handle) {
         println!("{:?}", page)
     }
 }

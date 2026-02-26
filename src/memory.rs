@@ -32,10 +32,10 @@ pub const DEFAULT_PAGE_PROTECTION_FLAGS: PAGE_PROTECTION_FLAGS = PAGE_PROTECTION
 /// let processes = process::list().unwrap();
 /// let entry = processes
 ///     .iter()
-///     .find(|&x| x.executable_name == "LockApp.exe")
+///     .find(|&x| x.executable_name == "conhost.exe")
 ///     .unwrap();
 ///
-/// let modules = module::list_modules_by_pid(entry.th32ProcessID).unwrap();
+/// let modules = memory::list_modules_by_pid(entry.th32ProcessID).unwrap();
 /// let entry_wrapper = modules
 ///     .into_iter()
 ///     .find(|x| x.module_name == "ntdll.dll")
@@ -74,10 +74,10 @@ impl Deref for ModuleEntryWrapper {
 /// let processes = process::list().unwrap();
 /// let entry = processes
 ///     .iter()
-///     .find(|&x| x.executable_name == "LockApp.exe")
+///     .find(|&x| x.executable_name == "conhost.exe")
 ///     .unwrap();
 ///
-/// let modules = module::list_modules_by_pid(entry.th32ProcessID).unwrap();
+/// let modules = memory::list_modules_by_pid(entry.th32ProcessID).unwrap();
 /// let entry = modules
 ///     .iter()
 ///     .find(|&x| x.module_name == "ntdll.dll")
@@ -103,11 +103,32 @@ pub fn list_modules_by_pid(process_id: u32) -> Result<Vec<ModuleEntryWrapper>> {
     Ok(modules)
 }
 
+/// Determines which pages to look for
 pub enum PageAllocation {
+    /// Looks for pages of the same initial allocation (that is, if the initial page is not MEM_FREE,
+    /// as stated at [VirtualQueryEx](https://learn.microsoft.com/en-us/windows/win32/api/memoryapi/nf-memoryapi-virtualqueryex))
     Same,
+    /// Do not stop whenever we jump to a different allocation base
     Any,
 }
 
+/// Retrieves information about a range of pages within the virtual address space of a
+/// specified process at a given `base_address`. See [`PageAllocation`] or
+/// [examples section](`list_pages_by_handle_with_flags#examples`) for information on function's behaviour.
+///
+/// # Examples
+/// ```
+/// use crate::dynamic_analysis_kit::*;
+///
+/// let processes = process::list().unwrap();
+/// let entry = processes
+///     .iter()
+///     .find(|&x| x.executable_name == "conhost.exe")
+///     .unwrap();
+///
+/// let handle_wrapper = process::handle_by_pid_with_rights(entry.th32ProcessID, process::PROCESS_QUERY_INFORMATION).unwrap();
+/// let pages = memory::list_pages_by_handle_with_flags(&handle_wrapper, 0 as *mut u8, memory::PageAllocation::Any, memory::DEFAULT_PAGE_PROTECTION_FLAGS);
+/// ```
 pub fn list_pages_by_handle_with_flags(
     handle: &HANDLE,
     base_address: *mut u8,
@@ -159,6 +180,7 @@ pub fn list_pages_by_handle_with_flags(
     regions
 }
 
+/// Shorthand for `list_pages_by_handle_with_flags`
 pub fn list_readonly_pages_by_handle(
     handle: &HANDLE,
     base_address: *mut u8,
@@ -172,6 +194,7 @@ pub fn list_readonly_pages_by_handle(
     )
 }
 
+/// Shorthand for `list_pages_by_handle_with_flags`
 pub fn list_every_readonly_page_by_handle(handle: &HANDLE) -> Vec<MEMORY_BASIC_INFORMATION> {
     list_readonly_pages_by_handle(handle, 0 as *mut u8, PageAllocation::Any)
 }

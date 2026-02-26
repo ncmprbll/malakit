@@ -121,7 +121,7 @@ impl Deref for HandleWrapper {
 /// let processes = process::list().unwrap();
 /// let entry = processes
 ///     .iter()
-///     .find(|&x| x.executable_name == "LockApp.exe") // System processes are gonna be upset with our meddling
+///     .find(|&x| x.executable_name == "conhost.exe") // System processes are gonna be upset with our meddling
 ///     .unwrap();
 ///
 /// let handle_wrapper = process::handle_by_pid(entry.th32ProcessID).unwrap();
@@ -140,7 +140,7 @@ pub fn handle_by_pid(pid: u32) -> Result<HandleWrapper> {
 /// let processes = process::list().unwrap();
 /// let entry = processes
 ///     .iter()
-///     .find(|&x| x.executable_name == "LockApp.exe") // System processes are gonna be upset with our meddling
+///     .find(|&x| x.executable_name == "conhost.exe") // System processes are gonna be upset with our meddling
 ///     .unwrap();
 ///
 /// let handle_wrapper = process::handle_by_pid_with_rights(entry.th32ProcessID, process::PROCESS_QUERY_INFORMATION).unwrap();
