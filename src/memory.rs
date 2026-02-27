@@ -6,8 +6,11 @@ use std::{ffi::c_void, ops::Deref};
 
 use windows::{
     Win32::{
-        Foundation::CloseHandle, Foundation::HANDLE, System::Diagnostics::ToolHelp::*,
-        System::Memory::*,
+        Foundation::{CloseHandle, HANDLE},
+        System::{
+            Diagnostics::{Debug::ReadProcessMemory, ToolHelp::*},
+            Memory::*,
+        },
     },
     core::Result,
 };
@@ -110,6 +113,105 @@ pub fn module_by_name(pid: u32, needle: &str) -> Result<Option<ModuleEntryWrappe
         .find(|x| x.module_name == needle))
 }
 
+struct SizedPageReader<'a> {
+    handle: &'a HANDLE,
+    page: &'a MEMORY_BASIC_INFORMATION,
+    at: *mut c_void,
+    size: usize,
+    step_offset: usize,
+}
+
+impl<'a> SizedPageReader<'a> {
+    fn new(
+        handle: &'a HANDLE,
+        page: &'a MEMORY_BASIC_INFORMATION,
+        size: usize,
+        step_offset: usize,
+    ) -> Self {
+        if step_offset >= size {
+            panic!("step offset should not be greater or equal to page size")
+        }
+
+        Self {
+            handle,
+            page,
+            at: page.BaseAddress,
+            size,
+            step_offset,
+        }
+    }
+}
+
+impl Iterator for SizedPageReader<'_> {
+    type Item = Vec<u8>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.page.RegionSize == 0 {
+            return None;
+        }
+
+        let base_offset = self.at as usize - self.page.BaseAddress as usize;
+
+        if base_offset >= self.page.RegionSize {
+            return None;
+        }
+
+        if base_offset + self.step_offset >= self.page.RegionSize {
+            return None;
+        }
+
+        let buffer_size = std::cmp::min(self.size, self.page.RegionSize - base_offset);
+        let mut buffer: Vec<u8> = vec![0; buffer_size];
+
+        if let Err(err) = unsafe {
+            ReadProcessMemory(
+                *self.handle,
+                self.at,
+                buffer.as_mut_ptr() as *mut c_void,
+                buffer_size,
+                None,
+            )
+        } {
+            println!("{:?}", err);
+            return None;
+        };
+
+        self.at = unsafe { self.at.add(buffer_size - self.step_offset) };
+
+        Some(buffer)
+    }
+}
+
+#[derive(Debug)]
+pub struct MemoryBasicInformationWrapper {
+    pub memory_basic_information: MEMORY_BASIC_INFORMATION,
+}
+
+impl MemoryBasicInformationWrapper {
+    pub fn new(memory_basic_information: MEMORY_BASIC_INFORMATION) -> Self {
+        Self {
+            memory_basic_information,
+        }
+    }
+
+    pub fn sized_reader<'a>(
+        &'a self,
+        handle: &'a HANDLE,
+        size: usize,
+        step_offset: usize,
+    ) -> impl Iterator<Item = Vec<u8>> + 'a {
+        SizedPageReader::new(handle, self, size, step_offset)
+    }
+}
+
+impl Deref for MemoryBasicInformationWrapper {
+    type Target = MEMORY_BASIC_INFORMATION;
+
+    fn deref(&self) -> &Self::Target {
+        &self.memory_basic_information
+    }
+}
+
 /// Determines which pages to look for.
 pub enum PageAllocation {
     /// Looks for pages of the same initial allocation (that is, if the initial page is not MEM_FREE,
@@ -155,11 +257,11 @@ pub fn list_pages_by_handle_with_flags(
     base_address: *mut u8,
     page_allocation: PageAllocation,
     flags: PAGE_PROTECTION_FLAGS,
-) -> Vec<MEMORY_BASIC_INFORMATION> {
+) -> Vec<MemoryBasicInformationWrapper> {
     let mut region_address = base_address;
     let mut region_information = MEMORY_BASIC_INFORMATION::default();
 
-    let mut regions: Vec<MEMORY_BASIC_INFORMATION> = Vec::new();
+    let mut regions: Vec<MemoryBasicInformationWrapper> = Vec::new();
 
     loop {
         if unsafe {
@@ -195,7 +297,7 @@ pub fn list_pages_by_handle_with_flags(
             continue;
         }
 
-        regions.push(region_information);
+        regions.push(MemoryBasicInformationWrapper::new(region_information));
     }
 
     regions
@@ -206,7 +308,7 @@ pub fn list_readonly_pages_by_handle(
     handle: &HANDLE,
     base_address: *mut u8,
     page_allocation: PageAllocation,
-) -> Vec<MEMORY_BASIC_INFORMATION> {
+) -> Vec<MemoryBasicInformationWrapper> {
     list_pages_by_handle_with_flags(
         handle,
         base_address,
@@ -216,6 +318,6 @@ pub fn list_readonly_pages_by_handle(
 }
 
 /// Shorthand for [`list_pages_by_handle_with_flags`]
-pub fn list_every_readonly_page_by_handle(handle: &HANDLE) -> Vec<MEMORY_BASIC_INFORMATION> {
+pub fn list_every_readonly_page_by_handle(handle: &HANDLE) -> Vec<MemoryBasicInformationWrapper> {
     list_readonly_pages_by_handle(handle, 0 as *mut u8, PageAllocation::Any)
 }

@@ -5,6 +5,7 @@
 
 use windows::core::Result;
 
+pub mod aob;
 pub mod memory;
 pub mod process;
 
@@ -15,10 +16,4 @@ fn u16_to_string(array: &[u16]) -> Result<String> {
         .unwrap_or(array.len());
 
     Ok(String::from_utf16(&array[..first_null_position])?)
-}
-
-pub fn aob(buffer: &[u8], pattern: &[u8]) -> Option<usize> {
-    buffer
-        .windows(pattern.len())
-        .position(|window| window == pattern)
 }
