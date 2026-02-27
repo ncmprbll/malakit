@@ -83,11 +83,11 @@ impl Deref for ModuleEntryWrapper {
 ///     .find(|&x| x.module_name == "ntdll.dll")
 ///     .unwrap();
 /// ```
-pub fn list_modules_by_pid(process_id: u32) -> Result<Vec<ModuleEntryWrapper>> {
+pub fn list_modules_by_pid(pid: u32) -> Result<Vec<ModuleEntryWrapper>> {
     let mut module_entry = MODULEENTRY32W::default();
     module_entry.dwSize = size_of::<MODULEENTRY32W>() as u32;
 
-    let snapshot = unsafe { CreateToolhelp32Snapshot(TH32CS_SNAPMODULE, process_id) }?;
+    let snapshot = unsafe { CreateToolhelp32Snapshot(TH32CS_SNAPMODULE, pid) }?;
 
     unsafe { Module32FirstW(snapshot, &mut module_entry) }?;
 
@@ -103,7 +103,14 @@ pub fn list_modules_by_pid(process_id: u32) -> Result<Vec<ModuleEntryWrapper>> {
     Ok(modules)
 }
 
-/// Determines which pages to look for
+/// Shorthand for [`module_by_name`] followed by a call to [`Vec::into_iter`] and [`Iterator::find`]
+pub fn module_by_name(pid: u32, needle: &str) -> Result<Option<ModuleEntryWrapper>> {
+    Ok(list_modules_by_pid(pid)?
+        .into_iter()
+        .find(|x| x.module_name == needle))
+}
+
+/// Determines which pages to look for.
 pub enum PageAllocation {
     /// Looks for pages of the same initial allocation (that is, if the initial page is not MEM_FREE,
     /// as stated at [VirtualQueryEx](https://learn.microsoft.com/en-us/windows/win32/api/memoryapi/nf-memoryapi-virtualqueryex))
