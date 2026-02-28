@@ -8,7 +8,13 @@ use windows::{
     Win32::{
         Foundation::{CloseHandle, HANDLE},
         System::{
-            Diagnostics::{Debug::ReadProcessMemory, ToolHelp::*},
+            Diagnostics::{
+                Debug::ReadProcessMemory,
+                ToolHelp::{
+                    CreateToolhelp32Snapshot, MODULEENTRY32W, Module32FirstW, Module32NextW,
+                    TH32CS_SNAPMODULE,
+                },
+            },
             Memory::*,
         },
     },
