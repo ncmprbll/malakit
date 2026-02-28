@@ -1,7 +1,7 @@
 use dynamic_analysis_kit::*;
 
 fn main() {
-    let processes = process::list().unwrap();
+    // let processes = process::list().unwrap();
 
     // for entry in processes.iter() {
     //     println!(
@@ -10,12 +10,12 @@ fn main() {
     //     );
     // }
 
-    let entry = processes
-        .iter()
-        .find(|x| x.executable_name == "msedge.exe")
-        .unwrap();
+    // let entry = processes
+    // //     .iter()
+    //     .find(|x| x.executable_name == "msedge.exe")
+    //     .unwrap();
 
-    let handle = process::handle_by_pid(entry.th32ProcessID).unwrap();
+    // let handle = process::handle_by_pid(entry.th32ProcessID).unwrap();
 
     // for entry in memory::list_modules_by_pid(entry.th32ProcessID).unwrap() {
     //     if entry.module_name == "telclient.dll" {
@@ -47,22 +47,29 @@ fn main() {
     //     }
     // }
 
-    let module = memory::module_by_name(entry.th32ProcessID, "telclient.dll")
-        .unwrap()
-        .unwrap();
-    let pages = memory::list_readonly_pages_by_handle(
-        &handle,
-        module.modBaseAddr,
-        memory::PageAllocation::Same,
-    );
+    // let module = memory::module_by_name(entry.th32ProcessID, "telclient.dll")
+    //     .unwrap()
+    //     .unwrap();
+    // let pages = memory::list_readonly_pages_by_handle(
+    //     &handle,
+    //     module.modBaseAddr,
+    //     memory::PageAllocation::Same,
+    // );
 
-    for page in pages {
-        for buffer in page.sized_reader(&handle, 1 << 13, 7) {
-            println!("{:?} {}", buffer, buffer.len())
-        }
-    }
+    // for page in pages {
+    //     for buffer in page.sized_reader(&handle, page.RegionSize, 7) {
+    //         println!("{:?} {}", buffer, buffer.len())
+    //     }
+    // }
 
-    for page in memory::list_every_readonly_page_by_handle(&handle) {
-        // println!("{:?}", page)
-    }
+    // for page in memory::list_every_readonly_page_by_handle(&handle) {
+    //     // println!("{:?}", page)
+    // }
+
+    let buffer: &[u8] = &[
+        0xAA, 0xAA, 0x22, 0x35, 0xFD, 0xAA, 0xBB, 0xAA, 0x00, 0xAB, 0x12, 0xAA, 0xAC,
+    ];
+    let pattern: &str = "AA AC";
+
+    println!("{:?}", aob::position(buffer, pattern));
 }

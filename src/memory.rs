@@ -15,7 +15,7 @@ use windows::{
     core::Result,
 };
 
-/// Read-only combination of flags
+/// Read-only combination of flags.
 pub const DEFAULT_PAGE_PROTECTION_FLAGS: PAGE_PROTECTION_FLAGS = PAGE_PROTECTION_FLAGS(
     PAGE_READONLY.0
         | PAGE_READWRITE.0
