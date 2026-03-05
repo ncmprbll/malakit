@@ -15,7 +15,11 @@ use windows::{
                     TH32CS_SNAPMODULE,
                 },
             },
-            Memory::*,
+            Memory::{
+                MEM_COMMIT, MEM_FREE, MEMORY_BASIC_INFORMATION, PAGE_EXECUTE_READ,
+                PAGE_EXECUTE_READWRITE, PAGE_EXECUTE_WRITECOPY, PAGE_PROTECTION_FLAGS,
+                PAGE_READONLY, PAGE_READWRITE, PAGE_WRITECOPY, VirtualQueryEx,
+            },
         },
     },
     core::Result,

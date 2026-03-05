@@ -7,7 +7,13 @@ use std::ops::Deref;
 use windows::{
     Win32::{
         Foundation::{CloseHandle, HANDLE},
-        System::{Diagnostics::ToolHelp::*, Threading::OpenProcess},
+        System::{
+            Diagnostics::ToolHelp::{
+                CreateToolhelp32Snapshot, PROCESSENTRY32W, Process32FirstW, Process32NextW,
+                TH32CS_SNAPPROCESS,
+            },
+            Threading::OpenProcess,
+        },
     },
     core::Result,
 };
