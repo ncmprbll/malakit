@@ -5,13 +5,23 @@
 use core::fmt;
 use std::{fmt::Debug, iter::zip, num::ParseIntError, str::Utf8Error};
 
-/// Represents a pattern to search for.
+/// Pattern is a collection of tokens.
 #[derive(Debug)]
 pub struct Pattern {
     tokens: Vec<Token>,
 }
 
 impl Pattern {
+    /// String must be a valid sequence of hex bytes (without `0x` prefix) optionally
+    /// separated by space. Special sequence `??` indicates ANY byte.
+    ///
+    /// # Examples
+    /// ```
+    /// use crate::dynamic_analysis_kit::*;
+    ///
+    /// let pattern = aob::Pattern::new("00 CC AA FA ?? ?? FC ?? ?? 0B").unwrap();
+    /// let pattern = aob::Pattern::new("00CCAAFA????FC????0B").unwrap();
+    /// ```
     pub fn new(s: &str) -> Result<Self, PatternError> {
         Ok(Pattern {
             tokens: s
@@ -31,6 +41,7 @@ impl Pattern {
     }
 }
 
+/// Represents a combination of errors: [`ParseIntError`] and [`Utf8Error`].
 #[derive(Debug, Clone)]
 pub struct PatternError {
     details: String,
@@ -66,9 +77,8 @@ enum Token {
 
 /// Returns indices of all the matches inside buffer.
 ///
-/// Pattern should contain a string representation of hex bytes or a `??`
-/// sequence. See [examples section](`scan#examples`) for possible valid
-/// patterns.
+/// See [`Pattern::new`] or [examples section](`scan#examples`) for possible
+/// valid patterns.
 ///
 /// # Examples
 /// ```
