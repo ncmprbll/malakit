@@ -2,11 +2,18 @@ use std::{env, process::exit};
 
 use dynamic_analysis_kit::*;
 
+const HELP_MESSAGE: &str = "Usage: dynamic_analysis_kit [COMMAND]
+\nCommands:
+  ps                   List processes in the system
+  scan <pid> <PATTERN> Scan the process for a given pattern (e.g. dynamic_analysis_kit scan 20300 \"FF ?? FF ?? 05 0C\")
+\nPattern:
+  Must be a valid sequence of hex bytes (without \"0x\" prefix) optionally separated by space. Special sequence \"??\" indicates ANY byte.";
+
 fn main() {
     let args: Vec<String> = env::args().collect();
 
     if args.len() <= 1 {
-        // TODO: Help message
+        help();
         return;
     }
 
@@ -39,7 +46,7 @@ fn main() {
         }
         "scan" => {
             if args.len() < 4 {
-                // TODD: Help message
+                help();
                 return;
             };
 
@@ -76,7 +83,11 @@ fn main() {
             }
         }
         _ => {
-            // TODO: Help message
+            help();
         }
     };
+}
+
+fn help() {
+    println!("{HELP_MESSAGE}");
 }
