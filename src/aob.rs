@@ -3,7 +3,7 @@
 //! `aob` lets you search for a pattern of bytes
 
 use core::fmt;
-use std::{fmt::Debug, iter::zip, num::ParseIntError, str::Utf8Error, u8};
+use std::{fmt::Debug, iter::zip, num::ParseIntError, str::Utf8Error};
 
 /// Represents a pattern to search for.
 #[derive(Debug)]
@@ -32,23 +32,29 @@ impl Pattern {
 }
 
 #[derive(Debug, Clone)]
-pub struct PatternError;
+pub struct PatternError {
+    details: String,
+}
 
 impl From<ParseIntError> for PatternError {
-    fn from(_: ParseIntError) -> Self {
-        PatternError
+    fn from(err: ParseIntError) -> Self {
+        PatternError {
+            details: err.to_string(),
+        }
     }
 }
 
 impl From<Utf8Error> for PatternError {
-    fn from(_: Utf8Error) -> Self {
-        PatternError
+    fn from(err: Utf8Error) -> Self {
+        PatternError {
+            details: err.to_string(),
+        }
     }
 }
 
 impl fmt::Display for PatternError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "bad pattern")
+        write!(f, "{}", self.details)
     }
 }
 
