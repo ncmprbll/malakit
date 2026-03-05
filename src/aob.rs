@@ -2,7 +2,29 @@
 //!
 //! `aob` lets you search for a pattern of bytes
 
-use std::{iter::zip, u8};
+use core::fmt;
+use std::{iter::zip, num::ParseIntError, str::Utf8Error, u8};
+
+#[derive(Debug, Clone)]
+pub struct PatternError;
+
+impl From<ParseIntError> for PatternError {
+    fn from(_: ParseIntError) -> Self {
+        PatternError
+    }
+}
+
+impl From<Utf8Error> for PatternError {
+    fn from(_: Utf8Error) -> Self {
+        PatternError
+    }
+}
+
+impl fmt::Display for PatternError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "bad pattern")
+    }
+}
 
 enum Token {
     Byte(u8),
@@ -14,11 +36,6 @@ enum Token {
 /// Pattern should contain a string representation of hex bytes or a `??`
 /// sequence. See [examples section](`scan#examples`) for possible valid
 /// patterns.
-///
-/// # Panics
-/// This function expects valid hex bytes (without `0x` prefix) or `??` as an
-/// exception. Culprits which can cause a panic are [`u8::from_str_radix`] and
-/// [`str::from_utf8`].
 ///
 /// # Examples
 /// ```
@@ -51,35 +68,40 @@ enum Token {
 ///
 /// for page in pages {
 ///     for buffer in page.sized_reader(&handle_wrapper, 2 << 13, 11) {
-///         for index in aob::scan(&buffer, pattern) {
+///         for index in aob::scan(&buffer, pattern).unwrap() {
 ///             println!("{:X} +0x{:X}", page.BaseAddress as usize, index);
 ///         }
 ///     }
 /// }
 /// ```
-pub fn scan(buffer: &[u8], pattern: &str) -> Vec<usize> {
-    let tokens = pattern
-        .trim()
-        .split_whitespace()
-        .map(|x| {
-            x.as_bytes().chunks_exact(2).map(|x| match x {
-                &[b'?', b'?'] => Token::Any,
-                _ => Token::Byte(u8::from_str_radix(str::from_utf8(x).unwrap(), 16).unwrap()),
-            })
+pub fn scan(buffer: &[u8], pattern: &str) -> Result<Vec<usize>, PatternError> {
+    let tokens = pattern.trim().split_whitespace().flat_map(|x| {
+        x.as_bytes().chunks_exact(2).map(|x| match x {
+            &[b'?', b'?'] => Ok(Token::Any),
+            _ => {
+                Ok::<Token, PatternError>(Token::Byte(u8::from_str_radix(str::from_utf8(x)?, 16)?))
+            }
         })
-        .flatten();
+    });
+
+    for token in tokens.clone() {
+        if let Err(err) = token {
+            return Err(err);
+        }
+    }
 
     let mut indices: Vec<usize> = Vec::new();
 
-    let pattern_size: usize = tokens.clone().count();
+    let pattern_size = tokens.clone().count();
     let mut windows = buffer.windows(pattern_size).peekable();
     let mut windows_progress: usize = 0;
 
     loop {
         match windows.position(|window| {
             zip(window, tokens.clone()).all(|(byte, token)| match token {
-                Token::Byte(u8) => byte == &u8,
-                Token::Any => true,
+                Ok(Token::Byte(u8)) => byte == &u8,
+                Ok(Token::Any) => true,
+                Err(_) => todo!(),
             })
         }) {
             Some(index) => {
@@ -94,7 +116,7 @@ pub fn scan(buffer: &[u8], pattern: &str) -> Vec<usize> {
         }
     }
 
-    indices
+    Ok(indices)
 }
 
 #[cfg(test)]
@@ -106,7 +128,7 @@ mod tests {
         let buffer: &[u8] = &[0x01, 0x02, 0x03, 0x04];
         let pattern = "??";
 
-        assert_eq!(scan(buffer, pattern), vec![0, 1, 2, 3]);
+        assert_eq!(scan(buffer, pattern).unwrap(), vec![0, 1, 2, 3]);
     }
 
     #[test]
@@ -114,7 +136,7 @@ mod tests {
         let buffer: &[u8] = &[0x01, 0x02, 0x03, 0x04];
         let pattern = "?? ?? ??";
 
-        assert_eq!(scan(buffer, pattern), vec![0, 1]);
+        assert_eq!(scan(buffer, pattern).unwrap(), vec![0, 1]);
     }
 
     #[test]
@@ -122,7 +144,7 @@ mod tests {
         let buffer: &[u8] = &[0x01, 0x02, 0x03, 0x04];
         let pattern = "??????";
 
-        assert_eq!(scan(buffer, pattern), vec![0, 1]);
+        assert_eq!(scan(buffer, pattern).unwrap(), vec![0, 1]);
     }
 
     #[test]
@@ -130,7 +152,7 @@ mod tests {
         let buffer: &[u8] = &[0x01, 0x02, 0x03, 0x04];
         let pattern = "02 03";
 
-        assert_eq!(scan(buffer, pattern), vec![1]);
+        assert_eq!(scan(buffer, pattern).unwrap(), vec![1]);
     }
 
     #[test]
@@ -138,7 +160,7 @@ mod tests {
         let buffer: &[u8] = &[0x01, 0x02, 0x03, 0x04];
         let pattern = "0203";
 
-        assert_eq!(scan(buffer, pattern), vec![1]);
+        assert_eq!(scan(buffer, pattern).unwrap(), vec![1]);
     }
 
     #[test]
@@ -146,7 +168,7 @@ mod tests {
         let buffer: &[u8] = &[0xAA, 0xBB, 0xCC, 0xDD];
         let pattern = "CC DD";
 
-        assert_eq!(scan(buffer, pattern), vec![2]);
+        assert_eq!(scan(buffer, pattern).unwrap(), vec![2]);
     }
 
     #[test]
@@ -154,7 +176,7 @@ mod tests {
         let buffer: &[u8] = &[0xAA, 0xBB, 0xCC, 0xDD];
         let pattern = "ccdd";
 
-        assert_eq!(scan(buffer, pattern), vec![2]);
+        assert_eq!(scan(buffer, pattern).unwrap(), vec![2]);
     }
 
     #[test]
@@ -162,22 +184,21 @@ mod tests {
         let buffer: &[u8] = &[0xAA, 0xBB, 0xCC, 0xDD];
 
         let pattern = "CC DD A";
-        assert_eq!(scan(buffer, pattern), vec![2]);
+        assert_eq!(scan(buffer, pattern).unwrap(), vec![2]);
 
         let pattern = "CC DD F";
-        assert_eq!(scan(buffer, pattern), vec![2]);
+        assert_eq!(scan(buffer, pattern).unwrap(), vec![2]);
 
         let pattern = "CC DD Z";
-        assert_eq!(scan(buffer, pattern), vec![2]);
+        assert_eq!(scan(buffer, pattern).unwrap(), vec![2]);
     }
 
     #[test]
-    #[should_panic]
     fn test_bad_pattern() {
         let buffer: &[u8] = &[0xAA, 0xBB, 0xCC, 0xDD];
         let pattern = "gg wp";
 
-        scan(buffer, pattern);
+        assert!(scan(buffer, pattern).is_err());
     }
 
     #[test]
@@ -188,45 +209,45 @@ mod tests {
         ];
 
         let pattern = "DA AC";
-        assert_eq!(scan(buffer, pattern), vec![3]);
+        assert_eq!(scan(buffer, pattern).unwrap(), vec![3]);
 
         let pattern = "FF 06";
-        assert_eq!(scan(buffer, pattern), vec![14]);
+        assert_eq!(scan(buffer, pattern).unwrap(), vec![14]);
 
         let pattern = "?? FF 06";
-        assert_eq!(scan(buffer, pattern), vec![13]);
+        assert_eq!(scan(buffer, pattern).unwrap(), vec![13]);
 
         let pattern = "FF 06 ??";
-        assert_eq!(scan(buffer, pattern), vec![]);
+        assert_eq!(scan(buffer, pattern).unwrap(), vec![]);
 
         let pattern = "DA AC 06";
-        assert_eq!(scan(buffer, pattern), vec![3]);
+        assert_eq!(scan(buffer, pattern).unwrap(), vec![3]);
 
         let pattern = "da AC 06";
-        assert_eq!(scan(buffer, pattern), vec![3]);
+        assert_eq!(scan(buffer, pattern).unwrap(), vec![3]);
 
         let pattern = "da ?? 06";
-        assert_eq!(scan(buffer, pattern), vec![3, 13]);
+        assert_eq!(scan(buffer, pattern).unwrap(), vec![3, 13]);
 
         let pattern = "07";
-        assert_eq!(scan(buffer, pattern), vec![6, 7]);
+        assert_eq!(scan(buffer, pattern).unwrap(), vec![6, 7]);
 
         let pattern = "07 ??";
-        assert_eq!(scan(buffer, pattern), vec![6, 7]);
+        assert_eq!(scan(buffer, pattern).unwrap(), vec![6, 7]);
 
         let pattern = "07 ?? ??";
-        assert_eq!(scan(buffer, pattern), vec![6, 7]);
+        assert_eq!(scan(buffer, pattern).unwrap(), vec![6, 7]);
 
         let pattern = "07 ?? ?? ??";
-        assert_eq!(scan(buffer, pattern), vec![6, 7]);
+        assert_eq!(scan(buffer, pattern).unwrap(), vec![6, 7]);
 
         let pattern = "07 ?? ?? ?? ?? ?? ?? ?? ?? ??";
-        assert_eq!(scan(buffer, pattern), vec![6]);
+        assert_eq!(scan(buffer, pattern).unwrap(), vec![6]);
 
         let pattern = "07 ?? 00";
-        assert_eq!(scan(buffer, pattern), vec![6]);
+        assert_eq!(scan(buffer, pattern).unwrap(), vec![6]);
 
         let pattern = "02 ?? DA ?? 06";
-        assert_eq!(scan(buffer, pattern), vec![1, 11]);
+        assert_eq!(scan(buffer, pattern).unwrap(), vec![1, 11]);
     }
 }

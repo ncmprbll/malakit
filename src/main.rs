@@ -77,8 +77,14 @@ fn main() {
                     }
                 };
 
-                for result in aob::scan(&buffer, &args[3]) {
-                    println!("0x{:X} +0x{:X}", base_address, result)
+                match aob::scan(&buffer, &args[3]) {
+                    Ok(indices) => indices
+                        .iter()
+                        .for_each(|index| println!("0x{:X} +0x{:X}", base_address, index)),
+                    Err(err) => {
+                        eprintln!("Scan failed: {err}");
+                        return;
+                    }
                 }
             }
         }
