@@ -1,7 +1,11 @@
 [package]
 name = "malakit"
-version = "0.6.7"
+version = "0.6.8"
 edition = "2024"
+license = "MIT"
+description = "Simple dynamic analysis toolkit for Windows"
+repository = "https://github.com/ncmprbll/malakit"
+readme = "README.md"
 
 [dependencies]
 
