@@ -15,8 +15,8 @@ PS > .\malakit.exe ps
 ...
 33736 Code.exe
 ...
-PS > .\malakit.exe scan 33736 "F8 C4 32 02 DB CA 2E 02 FA C4 59 02 DC C7"
+PS > .\malakit.exe scan 33736 "F8 C4 32 02 DB CA 2E ?? FA C4 59 02 ?? C7"
 0x17ACBC20000 +0x1695DC
-PS > .\malakit.exe scan 33736 --size 512 "F8 C4 32 02 DB CA 2E 02 FA C4 59 02 DC C7"
+PS > .\malakit.exe scan 33736 --size 512 "F8 C4 32 02 DB CA 2E ?? FA C4 59 02 ?? C7"
 0x17ACBC20000 +0x1695DC
 ```
